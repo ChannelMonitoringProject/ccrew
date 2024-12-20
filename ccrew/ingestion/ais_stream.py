@@ -8,13 +8,17 @@ from ccrew.models import BoatPositionReport
 from flask import jsonify
 from datetime import timedelta
 import redis
+
 from ccrew.config import get_config
+from celery import Task
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
 config = get_config()
 
 
 class State:
-    # TODO this should be managed by redis instead, as alerting can use the state too
+    # TODO this should be managed by redis instead, as alerting and monitoring can use the state too
     boats: list[BoatPositionReport]
 
     def __init__(self):
@@ -28,7 +32,7 @@ class State:
     def update_boat(self, boat: BoatPositionReport) -> None:
         """Update or boat in state or add if not already there"""
         boat_id = self.get_boat_id(boat)
-        self.redis.hmset(str(boat_id), boat)
+        # self.redis.hmset(str(boat_id), boat)
 
         for b in self.boats:
             if (
@@ -70,7 +74,7 @@ class State:
         return False
 
 
-class IngestAISStream:
+class IngestAISStream(Task):
 
     def ingest_boat_position_report(self, payload):
         """ingest a position report and update in database
@@ -83,7 +87,9 @@ class IngestAISStream:
         if boat_in_state is None or self.state.boat_stale(model):
             logging.error("Storing model")
             self.state.update_boat(model)
-            # self.db.session.add(model)
+            with Session(self.engine) as session:
+                session.add(model)
+                session.commit()
 
             # if self.update_check(self.state["boats"], model):
             #     logging.info("Storing model")
@@ -106,8 +112,8 @@ class IngestAISStream:
             logging.error(f"cannot handle message type {message_type}")
 
     async def ais_stream_listener(self):
-        api_key = self.config["api_key"]
-        arena = self.config["arena"]
+        api_key = self.config.AIS_STREAM["api_key"]
+        arena = self.config.AIS_STREAM["arena"]
         while True:
             logging.info("Connecting to AIS Stream")
             async with websockets.connect(
@@ -145,5 +151,25 @@ class IngestAISStream:
                     await asyncio.sleep(5)
 
     def __init__(self):
-        self.config = config.AIS_STREAM
+        self.config = get_config()
+        self.engine = create_engine(config.SQLALCHEMY_DATABASE_URI)
+
+        self.sessions = {}
         self.state = State()
+
+    #     def before_start(self, task_id, args, kwargs):
+    #         pass
+    #
+    #     def after_return(
+    #         self,
+    #         status: Any,
+    #         retval: Any,
+    #         task_id: str,
+    #         args: Tuple[Any, ...],
+    #         kwargs: Dict[str, Any],
+    #         einfo: ExceptionInfo,
+    #     ) -> None:
+    #         return super().after_return(status, retval, task_id, args, kwargs, einfo)
+    #
+    #    def run(self, *args: Any, **kwargs: Any) -> None:
+    #        return super().run(*args, **kwargs)

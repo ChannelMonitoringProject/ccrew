@@ -2,11 +2,15 @@ from datetime import datetime
 from ccrew.models import BoatPositionReport
 
 
-def parse_position_report(msg) -> BoatPositionReport:
-    """Maps an API response to model
+def parse_position_report(msg: dict) -> BoatPositionReport:
+    """
+    Maps an API response to model
 
     Note: Always index on both mmsi and ship_name.
     MMSI can be shared by different boats sometimes
+
+    :param msg dict: the contents of the AISStream response
+    :return: A BoatPositionReport model
     """
     ret = BoatPositionReport(
         **{

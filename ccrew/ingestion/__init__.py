@@ -13,7 +13,7 @@ ingestion_bp = Blueprint("ingestion", __name__)
 
 def ais_stream_running():
     task_name = "ccrew.ingestion.tasks.process_ais_stream"
-    inspector = tasks.celery.control.inspect().active()
+    inspector = tasks.celery.control().inspect()
     active_tasks = inspector.active()
     if not active_tasks:
         return False

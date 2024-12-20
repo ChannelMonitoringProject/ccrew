@@ -8,7 +8,7 @@ config = get_config()
 celery = create_celery_app()
 
 
-@celery.task(queue="ais-stream")
-def process_ais_stream():
+@celery.task(queue="ais-stream", bind=True, base=IngestAISStream)
+def process_ais_stream(self):
     ingest = IngestAISStream()
     asyncio.run(ingest.ais_stream_listener())
