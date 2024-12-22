@@ -1,0 +1,45 @@
+# ./.tmuxinator.yml
+# A helper to start up a dev environment with tmuxinator
+name: ccrew
+root: .
+windows:
+  - srv:
+      layout: main-horizontal
+      panes:
+        - services:
+          - docker-compose up database redis
+        - celery:
+          - export export FLASK_DEBUG=1
+          - source .venv/bin/activate
+          - sleep 3
+          - celery --app ccrew.celery_app worker --loglevel DEBUG
+        - app:
+          - export export FLASK_DEBUG=1
+          - source .venv/bin/activate
+          - sleep 3
+          - python -m flask --app ccrew.flask_app run
+  - dev:
+      layout: main-horizontal
+      panes:
+        - editor:
+          - export export FLASK_DEBUG=1
+          - source .venv/bin/activate
+          - nvim
+  - run:
+      layout: main-horizontal
+      panes:
+        - curl:
+          - export export FLASK_DEBUG=1
+          - source .venv/bin/activate
+          - sleep 4
+          - curl localhost:5000/health
+        - redis:
+          - export export FLASK_DEBUG=1
+          - source .venv/bin/activate
+          - sleep 4
+          - docker exec -ti ccrew_redis_1 redis-cli
+        - psql:
+          - export export FLASK_DEBUG=1
+          - source .venv/bin/activate
+          - sleep 4
+          - psql --host=localhost --dbname=ccrew_database --username=user

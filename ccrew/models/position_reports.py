@@ -1,6 +1,8 @@
+import datetime
 from .base import Base
 from sqlalchemy import Column, Integer, Float, String, DateTime, Boolean
 from dataclasses import dataclass, asdict
+from ccrew.core import db
 
 
 @dataclass
@@ -28,11 +30,16 @@ class BoatPositionReport(Base):
     user_id = Column(Integer)
     valid = Column(Boolean)
 
-    def dict(self):
-        return {k: str(v) for k, v in asdict(self).items()}
-
-    # def __init__(self, payload):
-    #    pass
+    def as_dict(self):
+        return {
+            c.name: (
+                getattr(self, c.name)
+                if not isinstance(getattr(self, c.name), datetime.datetime)
+                else getattr(self, c.name).isoformat()
+            )
+            for c in self.__table__.columns
+            # if getattr(self, c.name) is not None
+        }
 
 
 @dataclass

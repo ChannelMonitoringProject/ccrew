@@ -15,6 +15,11 @@ class Config:
         "result_backend": "redis://localhost",
         "task_ignore_results": True,
     }
+    REDIS = {
+        "host": "redis://localhost",
+        "port": 6379,
+        "db": 1,
+    }
     # CELERY_BROKER_URL = "redis://localhost:6379/0"
     # CELERY_RESULT_BACKEND = "redis://localhost:6379/0"
     AIS_STREAM = {

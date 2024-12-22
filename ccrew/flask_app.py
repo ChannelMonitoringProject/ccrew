@@ -1,7 +1,7 @@
 from flask import Flask
 from ccrew import ingestion
 from ccrew.ingestion import ingestion_bp
-from ccrew.core import db, migrate, celery
+from ccrew.core import db, migrate
 import ccrew.models
 
 from ccrew.config import get_config
