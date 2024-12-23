@@ -1,7 +1,10 @@
 import logging
 from flask import Blueprint
 from . import tasks
-from .tasks import celery, process_ais_stream
+from .tasks import celery_app, process_ais_stream
+from ccrew.config import get_config
+import redis
+from celery.result import AsyncResult
 
 # from ccrew.celery_app import celery
 
@@ -10,10 +13,16 @@ ais_stream_task_id = None
 ais_stream_task_response = None
 ingestion_bp = Blueprint("ingestion", __name__)
 
+config = get_config()
+
+redis_client = redis.Redis(
+    host=config.REDIS["host"], port=config.REDIS["port"], db=config.REDIS["db"]
+)
+
 
 def ais_stream_running():
     task_name = "ccrew.ingestion.tasks.process_ais_stream"
-    inspector = tasks.celery.control().inspect()
+    inspector = tasks.celery_app.control().inspect()
     active_tasks = inspector.active()
     if not active_tasks:
         return False
@@ -22,7 +31,12 @@ def ais_stream_running():
 
 @ingestion_bp.route("/ais/status")
 def ingestion_status():
-    return {}
+    global ais_stream_task_id
+    if ais_stream_task_id is None:
+        return {"message": "Task not running"}
+    result: AsyncResult = AsyncResult(ais_stream_task_id)
+    print(result)
+    return {"state": result.state}
 
 
 @ingestion_bp.route("/ais/start")
@@ -33,6 +47,7 @@ def start_ais():
         return {"message": f"Task {ais_stream_task_id} was already running"}
 
     ais_stream_task_response = process_ais_stream.delay()
+    ais_stream_task_id = ais_stream_task_response.task_id
     logging.info(ais_stream_task_response)
     return {
         "message": "starting AIS Stream listener task",

@@ -1,3 +1,5 @@
+from typing import Any
+from billiard.einfo import ExceptionInfo
 import logging
 import websockets
 import asyncio
@@ -14,26 +16,25 @@ from ccrew.config import get_config
 from celery import Task
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from celery.utils.log import get_task_logger
 
 config = get_config()
 
+logger = get_task_logger(__name__)
+
 
 class State:
-    # TODO this should be managed by redis instead, as alerting and monitoring can use the state too
-    boats: list[BoatPositionReport]
+    """Manages the state (most current reading) of AIS position reports"""
 
     def __init__(self):
         self.boats = []
         self.redis = redis.Redis(
-            host="localhost", port=6379, db=1, decode_responses=True
+            host=config.REDIS["host"], port=config.REDIS["port"], db=config.REDIS["db"]
         )
-        # self.redis = redis.Redis(
-        #     host=config.REDIS["host"], port=config.REDIS["port"], db=config.REDIS["db"]
-        # )
 
     def get_boat_redis_key(self, boat: BoatPositionReport) -> str:
         """
-        get a redis key from a boad position report model
+        get a redis key from a boat position report model
 
 
         :param boat: a BoatPositionReport model containing an mmsi and ship_name keys
@@ -46,27 +47,8 @@ class State:
         """Update or boat in state or add if not already there"""
         redis_key = self.get_boat_redis_key(boat)
         entry = boat.as_dict()
-        # e = dict(a=33)
-        logging.debug(entry)
+        logger.debug(f"Updating state for {entry}")
         self.redis.json().set(redis_key, Path.root_path(), entry)
-        # self.redis.json().set(redis_key, Path.root_path(), e)
-
-        # self.redis.set(redis_key, json.dumps(entry))
-        # self.redis.hset(redis_key, mapping=entry)
-        # self.redis.hset(redis_key, mapping=entry)
-
-        # self.redis.hmset(str(boat_id), boat)
-
-        # for b in self.boats:
-        #     if (
-        #         b.mmsi is boat.mmsi
-        #         and str(b.ship_name).strip() == str(boat.ship_name).strip()
-        #     ):
-        #         logging.error(f"Updating {jsonify(b)} to {jsonify(boat)}")
-        #         b = boat
-        #         return
-        # logging.error(f"Adding boat {boat.mmsi} - {boat.ship_name} to state")
-        # self.boats.append(boat)
 
     def get_boat(self, boat: BoatPositionReport) -> BoatPositionReport | None:
         """
@@ -79,55 +61,52 @@ class State:
 
         redis_key = self.get_boat_redis_key(boat)
         ret = self.redis.json().get(redis_key)
+        logger.debug(
+            f"Got boat position report {redis_key} - {ret} of type {type(ret)}"
+        )
         if ret is None:
             return None
-            # if len(ret) >= 2:
-            #     logging.error("More then one boat for state, should never happen")
-            #     logging.error(ret)
-            #     raise ValueError("More then one boat for state, should never happen", ret)
-        logging.info("getting boat")
-        logging.info(ret)
-        logging.info(type(ret))
+        if type(ret) is not dict:
+            raise ValueError(
+                f"Unexpected result from redis state, expected dict got {type(ret)} for {ret}"
+            )
         return BoatPositionReport(**ret)
-        # return BoatPositionReport(*ret[0])
-        # for b in self.boats:
-        #     if b.mmsi is mmsi and str(b.ship_name).strip() == str(ship_name).strip():
-        #         return b
-        # return None
 
     def boat_stale(
-        self, boat: BoatPositionReport, interval=timedelta(seconds=15)
+        self, boat: BoatPositionReport, interval=timedelta(seconds=60)
     ) -> bool:
         """
         Checks if boat in state is stale (last signal was more then interval ago)
 
         :param boat: A BoatPositionReport, probably from AISStream
-        :param interval timedelta: time to consider state being stale
+        :param interval timedelta: time to consider state being stale, default 60 seconds
         :return: True if BoatPositionReport is older then interval ago, False otherwise
         :raises ValueError: Boat not yet in state (should not happen as we're testing if its in state before testing if its stale
         :raises ValueError: If any of boat, or boat_in_state is missing `server_timestamp` key
         """
-        logging.error("Checking if boat is stale")
+        logger.debug(f"Checking if boat is stale {boat}, interval: {interval}")
         boat_in_state = self.get_boat(boat)
         if boat_in_state is None:
             raise ValueError(
                 f"boat {boat.mmsi}-{boat.ship_name} not tracked, can't check if stale"
             )
-        # timestamp = boat.server_timestamp.value
         timestamp = boat.server_timestamp
         last_seen = datetime.fromisoformat(boat_in_state.server_timestamp)
         if timestamp is None or last_seen is None:
             raise ValueError(f"missing timestamp in model")
 
-        print(type(timestamp))
-        print(type(last_seen))
+        if type(timestamp) is not datetime or type(last_seen) is not datetime:
+            raise ValueError(
+                f"expected datetime, got {type(timestamp)} - {timestamp} and {type(last_seen)} - {last_seen}"
+            )
+
         if timestamp > last_seen + interval:
-            logging.debug(
+            logger.debug(
                 f"Boat {boat.mmsi}-{boat.ship_name} is stale, need to update (last_seen: {last_seen}, current: {timestamp})"
             )
             return True
         else:
-            logging.debug(
+            logger.debug(
                 f"Boat {boat.mmsi}-{boat.ship_name} is fresh, no need to update (last_seen: {last_seen}, current: {timestamp})"
             )
 
@@ -135,6 +114,8 @@ class State:
 
 
 class IngestAISStream(Task):
+    autoretry_for = (websockets.ConnectionClosedError,)
+    retry_backoff = True
 
     def ingest_boat_position_report(self, payload):
         """ingest a position report and update in database
@@ -145,22 +126,16 @@ class IngestAISStream(Task):
         model = parsers.parse_position_report(payload)
         boat_in_state = self.state.get_boat(model)
         if boat_in_state is None or self.state.boat_stale(model):
-            logging.error("Storing model")
+            logger.debug(f"Storing model {model}")
             self.state.update_boat(model)
             with Session(self.engine) as session:
                 session.add(model)
                 session.commit()
 
-            # if self.update_check(self.state["boats"], model):
-            #     logging.info("Storing model")
-            #     # with db.SessionLocal() as session:
-            #     #     session.add(model)
-        logging.info("Ingested")
-
     def ingest_ais_stream(self, payload):
         if "MessageType" not in payload:
-            logging.error("Missing MessageType key in AIS Stream response")
-            logging.error(payload)
+            logger.error("Missing MessageType key in AIS Stream response")
+            logger.error(payload)
             return
 
         message_type = payload["MessageType"]
@@ -169,13 +144,13 @@ class IngestAISStream(Task):
         # elif message_type == "StandardSearchAndRescueAircraftReport":
         #     self.ingest_aircraft_position_report(payload)
         else:
-            logging.error(f"cannot handle message type {message_type}")
+            logger.error(f"cannot handle message type {message_type}")
 
     async def ais_stream_listener(self):
         api_key = self.config.AIS_STREAM["api_key"]
         arena = self.config.AIS_STREAM["arena"]
         while True:
-            logging.info("Connecting to AIS Stream")
+            logger.info("Connecting to AIS Stream")
             async with websockets.connect(
                 "wss://stream.aisstream.io/v0/stream"
             ) as websocket:
@@ -183,7 +158,6 @@ class IngestAISStream(Task):
                     subscribe_message = {
                         "APIKey": api_key,
                         "BoundingBoxes": arena,
-                        # "FiltersShipMMSI": ["368207620", "367719770", "211476060"], # Optional!
                         "FilterMessageTypes": [
                             "PositionReport",
                             "StandardSearchAndRescueAircraftReport",
@@ -195,19 +169,16 @@ class IngestAISStream(Task):
 
                     async for message_json in websocket:
                         message = json.loads(message_json)
-                        logging.error(" - Message in websocket")
-                        logging.error(message)
-
                         if message == {"error": "Api Key Is Not Valid"}:
-                            logging.error(message)
+                            logger.error(message)
                             exit(-1)
                         self.ingest_ais_stream(message)
                 except websockets.ConnectionClosedError as ccerr:
                     await asyncio.sleep(5)
                 except Exception as err:
-                    logging.error("err")
-                    logging.error(err)
-                    logging.error(traceback.format_exc())
+                    logger.error("err")
+                    logger.error(err)
+                    logger.error(traceback.format_exc())
                     await asyncio.sleep(5)
 
     def __init__(self):
@@ -216,6 +187,29 @@ class IngestAISStream(Task):
 
         self.sessions = {}
         self.state = State()
+        self.redis = redis.Redis(
+            host=config.REDIS["host"], port=config.REDIS["port"], db=config.REDIS["db"]
+        )
+
+    def before_start(
+        self,
+        task_id: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ):
+        pass
+
+    def on_failure(
+        self,
+        exc: Exception,
+        task_id: str,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+        einfo: ExceptionInfo,
+    ) -> None:
+        logger.error(f"AIS Task failed {exc}")
+        self.redis.set("task:IngestAISStream:status", "failed")
+        return super().on_failure(exc, task_id, args, kwargs, einfo)
 
     #     def before_start(self, task_id, args, kwargs):
     #         pass

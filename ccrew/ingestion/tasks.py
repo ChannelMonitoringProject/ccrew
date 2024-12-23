@@ -3,12 +3,17 @@ from .ais_stream import IngestAISStream
 import asyncio
 import logging
 from ccrew.config import get_config
+from celery.utils.log import get_task_logger
+
+logger = get_task_logger(__name__)
 
 config = get_config()
-celery = create_celery_app()
+celery_app = create_celery_app()
 
 
-@celery.task(queue="ais-stream", bind=True, base=IngestAISStream)
+@celery_app.task(
+    queue="ais-stream", bind=True, base=IngestAISStream, name="ingest.ais-stream"
+)
 def process_ais_stream(self):
     ingest = IngestAISStream()
     asyncio.run(ingest.ais_stream_listener())

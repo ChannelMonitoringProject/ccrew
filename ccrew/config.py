@@ -16,7 +16,7 @@ class Config:
         "task_ignore_results": True,
     }
     REDIS = {
-        "host": "redis://localhost",
+        "host": "localhost",
         "port": 6379,
         "db": 1,
     }
