@@ -1,10 +1,13 @@
+import inspect
 import logging
 from flask import Blueprint
 from . import tasks
 from .tasks import celery_app, process_ais_stream
+from .ais_stream import IngestAISStream
 from ccrew.config import get_config
 import redis
 from celery.result import AsyncResult
+
 
 # from ccrew.celery_app import celery
 
@@ -20,49 +23,60 @@ redis_client = redis.Redis(
 )
 
 
-def ais_stream_running():
-    task_name = "ccrew.ingestion.tasks.process_ais_stream"
-    inspector = tasks.celery_app.control().inspect()
+def get_active_ais_stream_tasks():
+    ret = []
+    inspector = tasks.celery_app.control.inspect()
     active_tasks = inspector.active()
     if not active_tasks:
-        return False
-    return True
+        return
+    for worker, ts in active_tasks.items():
+        for t in ts:
+            if t["name"] == IngestAISStream.REDIS_TASK_NAME:
+                ret.append(t)
+    return ret
 
 
 @ingestion_bp.route("/ais/status")
 def ingestion_status():
-    global ais_stream_task_id
-    if ais_stream_task_id is None:
-        return {"message": "Task not running"}
-    result: AsyncResult = AsyncResult(ais_stream_task_id)
-    print(result)
-    return {"state": result.state}
+    ret = {}
+    active_ais_stream_tasks = get_active_ais_stream_tasks()
+    if not active_ais_stream_tasks:
+        return {
+            "message": "No active AIS Stream ingestion tasks, use /start endpoint to start"
+        }
+    for t in active_ais_stream_tasks:
+        result: AsyncResult = AsyncResult(t["id"], app=tasks.celery_app)
+        print(result.info)
+        print(result.result)
+
+        logging.info(f"Running AIS Stream Task {t} with status {result.status}")
+        ret[t["id"]] = {
+            "status": result.status,
+            "state": result.state,
+            "name": t["name"],
+        }
+    return ret
 
 
 @ingestion_bp.route("/ais/start")
 def start_ais():
-    global ais_stream_task_id
-    if ais_stream_task_id:
-        logging.warning(f"Task id {ais_stream_task_id} already running")
-        return {"message": f"Task {ais_stream_task_id} was already running"}
 
-    ais_stream_task_response = process_ais_stream.delay()
-    ais_stream_task_id = ais_stream_task_response.task_id
-    logging.info(ais_stream_task_response)
-    return {
-        "message": "starting AIS Stream listener task",
-        "task-id": ais_stream_task_response.task_id,
-    }
+    active_ais_stream_tasks = get_active_ais_stream_tasks()
+    if not active_ais_stream_tasks:
+        redis_client.set(IngestAISStream.REDIS_TASK_CONTROL_KEY, "start")
+
+        ais_stream_task_response = process_ais_stream.delay()
+        logging.info(ais_stream_task_response)
+        return {
+            "message": "starting AIS Stream listener task",
+            "task-id": ais_stream_task_response.task_id,
+        }
+    logging.warning(f"Task already running, not starting a new instance")
+    return {"message": f"Task  was already running"}
 
 
 @ingestion_bp.route("/ais/stop")
 def stop_ais():
-    if ais_stream_task_response:
-        ais_stream_task_response.revoke(terminate=True)
-    # global ais_stream_task_id
-    # if ais_stream_task_id is None:
-    #     logging.warning(f"AIS Stream listener not running")
-    #     return {"message": f"Task not running"}
-    # celery.control().revoke(ais_stream_task_id, terminate=True)
-    # ais_stream_task_id = None
-    return {}
+    logging.warning("AIS Ingestion process stopping, will not monitor AIS Stream")
+    redis_client.set(IngestAISStream.REDIS_TASK_CONTROL_KEY, "stop")
+    return {"message": "ending ais stream ingestion task"}

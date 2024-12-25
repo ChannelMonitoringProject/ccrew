@@ -12,8 +12,16 @@ celery_app = create_celery_app()
 
 
 @celery_app.task(
-    queue="ais-stream", bind=True, base=IngestAISStream, name="ingest.ais-stream"
+    queue="ais-stream",
+    bind=True,
+    base=IngestAISStream,
+    name=IngestAISStream.REDIS_TASK_NAME,
 )
 def process_ais_stream(self):
     ingest = IngestAISStream()
     asyncio.run(ingest.ais_stream_listener())
+
+
+@celery_app.task(bind=True, name="ingest.weather.hourly")
+def hourly_weather(self):
+    pass

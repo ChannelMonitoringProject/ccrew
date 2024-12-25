@@ -60,17 +60,20 @@ class State:
         """
 
         redis_key = self.get_boat_redis_key(boat)
-        ret = self.redis.json().get(redis_key)
+        boat_in_state = self.redis.json().get(redis_key)
         logger.debug(
-            f"Got boat position report {redis_key} - {ret} of type {type(ret)}"
+            f"Got boat position report {redis_key} - {boat_in_state } of type {type(boat_in_state )}"
         )
-        if ret is None:
+        if boat_in_state is None:
             return None
-        if type(ret) is not dict:
+        if type(boat_in_state) is not dict:
             raise ValueError(
-                f"Unexpected result from redis state, expected dict got {type(ret)} for {ret}"
+                f"Unexpected result from redis state, expected dict got {type(boat_in_state )} for {boat_in_state }"
             )
-        return BoatPositionReport(**ret)
+        ret = BoatPositionReport(**boat_in_state)
+        # Something funny is happening here, server_timestamp is an isostring in redis
+        # liner thinks it is not a datetime in BoatPositionReport
+        return ret
 
     def boat_stale(
         self, boat: BoatPositionReport, interval=timedelta(seconds=60)
@@ -116,6 +119,8 @@ class State:
 class IngestAISStream(Task):
     autoretry_for = (websockets.ConnectionClosedError,)
     retry_backoff = True
+    REDIS_TASK_NAME = "ingest.ais-stream"
+    REDIS_TASK_CONTROL_KEY = "task:ingest.ais-stream:control"
 
     def ingest_boat_position_report(self, payload):
         """ingest a position report and update in database
@@ -149,7 +154,8 @@ class IngestAISStream(Task):
     async def ais_stream_listener(self):
         api_key = self.config.AIS_STREAM["api_key"]
         arena = self.config.AIS_STREAM["arena"]
-        while True:
+        done = False
+        while not done:
             logger.info("Connecting to AIS Stream")
             async with websockets.connect(
                 "wss://stream.aisstream.io/v0/stream"
@@ -168,6 +174,13 @@ class IngestAISStream(Task):
                     await websocket.send(subscribe_message_json)
 
                     async for message_json in websocket:
+                        control = self.redis.get(IngestAISStream.REDIS_TASK_CONTROL_KEY)
+                        # To do, update state with some life signal (last updated or last database insert)
+                        # self.update_state(state="PROCESSING")
+                        if control and control.decode("utf-8") == "stop":
+                            done = True
+                            break
+
                         message = json.loads(message_json)
                         if message == {"error": "Api Key Is Not Valid"}:
                             logger.error(message)
@@ -208,7 +221,8 @@ class IngestAISStream(Task):
         einfo: ExceptionInfo,
     ) -> None:
         logger.error(f"AIS Task failed {exc}")
-        self.redis.set("task:IngestAISStream:status", "failed")
+        # This should probably be done with update_state
+        self.redis.set("task:ingest.ais-stream:status", "failed")
         return super().on_failure(exc, task_id, args, kwargs, einfo)
 
     #     def before_start(self, task_id, args, kwargs):
