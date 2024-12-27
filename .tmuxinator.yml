@@ -10,11 +10,13 @@ windows:
           - docker-compose up database redis
         - celery:
           - export export FLASK_DEBUG=1
+          - export export ENVIRONMENT=dev
           - source .venv/bin/activate
           - sleep 3
           - celery --app ccrew.celery_app worker --loglevel DEBUG
         - app:
           - export export FLASK_DEBUG=1
+          - export export ENVIRONMENT=dev
           - source .venv/bin/activate
           - sleep 3
           - python -m flask --app ccrew.flask_app run

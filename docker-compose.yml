@@ -20,12 +20,31 @@ services:
     ports:
       - "6379:6379"
 
-#  celery:
-#    build: .
-#    command: celery -A app.celery worker --loglevel=info
-#    depends_on:
-#      - redis
+  celery_application:
+    build: .
+    command: celery --app ccrew.celery_app worker --loglevel DEBUG
+    depends_on:
+      database:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_started
+    env_file:
+        - env.docker
 
+  flask_application:
+    build: .
+    # command: python -m flask --app ccrew.flask_app run
+    depends_on:
+      database:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_started
+    env_file:
+        - env.docker
+    ports:
+      - "8050:5000"
 
 volumes:
   database:
