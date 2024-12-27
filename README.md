@@ -21,7 +21,7 @@ AIS_STREAM_API_KEY="API KEY"
 ENVIRONMENT="docker"
 ```
 
-the `ENVIRONMENT` variable sets the config the application will use. it can be "dev" or "docker", but is easily configured as  necessary, see "ccrew/config.py". setting to "DEVELOPMENT", will use localhost for the database and redis addresses, whereas "DOCKER" will use the docker host defined in the `docker-compose.yml` file (redis and database).
+the `ENVIRONMENT` variable sets the config the application will use. it can be "dev" or "docker", but is easily configured as  necessary, see "ccrew/config.py". setting to "dev", will use localhost for the database and redis addresses, whereas "docker" will use the docker host defined in the `docker-compose.yml` file (redis and database).
 
 
 ## Run
@@ -103,6 +103,7 @@ curl localhost:5000/ais/stop
 ```
 
 to start and stop the task and query it's status
+
 
 ## Overview
 This is divided into three sections, Ingestion, Alerts and Reports and Monitoring.
