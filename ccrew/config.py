@@ -27,7 +27,8 @@ class Config:
     AIS_STREAM = {
         "arena": [[[51.385, 0.909], [50.678, 2.667]]],
         "api_key": os.environ.get("AIS_STREAM_API_KEY"),
-        "update_interval": 15,
+        # update database/state when last stamp was older then
+        "update_interval": 300,
     }
 
 
@@ -44,7 +45,6 @@ class DockerConfig(Config):
         "port": 6379,
         "db": 1,
     }
-    pass
 
 
 class DevelopmentConfig(Config):

@@ -1,6 +1,6 @@
 # Channel Crossing Research Early Warnning
 This is an application developed for the Channel Monitoring Project.
-It aides in monitoring and alerting and reporting on activities and conditions on the Channel, with regard to situations where there is a risk of harm. It is a set of utilities that help study activities in order the reduce risk and harm of those crossing in hazardous routes.
+It aides in monitoring and alerting and reporting on activities and conditions on the Channel, focused on situations where there is a risk of harm. It is a set of utilities that help study activities in order the reduce risk and harm of those crossing in hazardous routes.
 
 ## Setup
 The following must be performed from the project's root directory.
@@ -10,7 +10,7 @@ Copy the `./env.docker` to `.env`
 cp env.docker .env
 ```
 
-This will set the evironment varibles needed to run, including database logins, third party api keys, and the config environment.
+This will set the environment variables needed to run, including database logins, third party api keys, and the config environment.
 You will need to at least provide the `AIS_STREAM_API_KEY` by editing the `.env` file and adding it.
 
 ```sh
@@ -21,7 +21,7 @@ AIS_STREAM_API_KEY="API KEY"
 ENVIRONMENT="docker"
 ```
 
-the `ENVIRONMENT` variable sets the config the application will use. it can be "dev" or "docker", but is easily configured as  necessary, see "ccrew/config.py". setting to "dev", will use localhost for the database and redis addresses, whereas "docker" will use the docker host defined in the `docker-compose.yml` file (redis and database).
+the `ENVIRONMENT` variable sets the config the application will use. it can be "dev" or "docker", but is easily configured as  necessary, see "ccrew/config.py". setting to "dev", will use localhost for the database and redis addresses, whereas "docker" will use the docker host defined in the `docker-compose.yml` file ("redis" and "database").
 
 
 ## Run
@@ -138,3 +138,17 @@ TBD probably similar to AIS Stream Task
 ### Weather Report
 
 ### Historic State Map
+
+## Setup
+
+This application uses an SQL Database and a Redis database
+Workloads are done using Celery which manages tasks
+Tasks could be long running tasks such as ingesting a stream of boat position reports from a websocket, scheduled ingestion tasks such as hourly weather report. They could also be reporting and alerting tasks such as daily weather forecast report, or priodict alert dispatch.
+
+The Celery application, defined in "ccrew/celery_app.py", runs in its own container, seperate from the frontend flask application. they communicate with eatchother using redis (in memory key/value database), this is defined in "config.py"
+
+reports or periodic alerts and status updates
+
+
+
+

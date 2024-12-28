@@ -75,18 +75,19 @@ class State:
         # liner thinks it is not a datetime in BoatPositionReport
         return ret
 
-    def boat_stale(
-        self, boat: BoatPositionReport, interval=timedelta(seconds=60)
-    ) -> bool:
+    def boat_stale(self, boat: BoatPositionReport, interval=50) -> bool:
         """
         Checks if boat in state is stale (last signal was more then interval ago)
 
         :param boat: A BoatPositionReport, probably from AISStream
-        :param interval timedelta: time to consider state being stale, default 60 seconds
+        :param interval integer: time in seconds to consider state being stale, default 60 seconds
         :return: True if BoatPositionReport is older then interval ago, False otherwise
         :raises ValueError: Boat not yet in state (should not happen as we're testing if its in state before testing if its stale
         :raises ValueError: If any of boat, or boat_in_state is missing `server_timestamp` key
         """
+
+        interval = timedelta(seconds=interval)
+
         logger.debug(f"Checking if boat is stale {boat}, interval: {interval}")
         boat_in_state = self.get_boat(boat)
         if boat_in_state is None:
@@ -130,7 +131,9 @@ class IngestAISStream(Task):
         """
         model = parsers.parse_position_report(payload)
         boat_in_state = self.state.get_boat(model)
-        if boat_in_state is None or self.state.boat_stale(model):
+        if boat_in_state is None or self.state.boat_stale(
+            model, interval=config.AIS_STREAM["update_interval"]
+        ):
             logger.debug(f"Storing model {model}")
             self.state.update_boat(model)
             with Session(self.engine) as session:
