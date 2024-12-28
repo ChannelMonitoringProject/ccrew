@@ -1,4 +1,5 @@
-from dash import Dash, Input, Output, callback, dcc, html
+import json
+from dash import Dash, Input, Output, State, callback, dcc, html
 from ccrew.reporting import plotting
 
 
@@ -12,14 +13,20 @@ def create_dash_app(base_flask_app):
         children=[
             html.H1("Dashboard"),
             dcc.Graph(id="current_state", figure=plotting.plot_state()),
-            #            dcc.Interval(id="interval_component", interval=10 * 1000),
+            #     dcc.Interval(id="interval_component", interval=10 * 1000),
         ],
     )
 
     # @callback(
-    #     Output("current_state", "children"), Input("interval_component", "n_intervals")
+    #     Output("current_state", "extendData"),
+    #     [Input("interval_component", "n_intervals")],
+    #     [State("current_state", "figure")],
     # )
-    # def update_state(n):
-    #     return plotting.plot_state()
+    # def update_state(n, existing):
+    #     print("=============existing=============")
+    #     print(json.dumps(existing, indent=2))
+    #     trace = plotting.get_state_trace()
+    #     existing["data"][0] = trace
+    #     return existing
 
     return dash_app.server

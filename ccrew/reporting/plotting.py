@@ -60,7 +60,6 @@ def get_state_boat_position_reports():
     state = redis_client.scan_iter("state:BoatPositionReport:*")
     for position_report_key in state:
         position_report = redis_client.json().get(position_report_key)
-        print(position_report)
         ret.append(position_report)
     return ret
 
@@ -79,8 +78,11 @@ def to_defaultdict(list_of_dicts):
     return ret
 
 
-def get_state_trace(plot_data):
+def get_state_trace():
+    boat_position_reports = get_state_boat_position_reports()
+    plot_data = to_defaultdict(boat_position_reports)
     ret = go.Scattermapbox(
+        name="state_trace",
         lat=plot_data["lat"],
         lon=plot_data["lon"],
         mode="markers+text",
@@ -99,9 +101,7 @@ def plot_state():
     center = get_center(arena)
     zoom = 10
 
-    boat_position_reports = get_state_boat_position_reports()
-    plot_data = to_defaultdict(boat_position_reports)
-    state_trace = get_state_trace(plot_data)
+    state_trace = get_state_trace()
 
     fig = go.Figure()
     fig.add_trace(state_trace)
