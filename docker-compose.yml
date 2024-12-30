@@ -26,7 +26,7 @@ services:
     depends_on:
       database:
         condition: service_healthy
-        restart: true
+        # restart: true
       redis:
         condition: service_started
     env_file:
@@ -38,7 +38,7 @@ services:
     depends_on:
       database:
         condition: service_healthy
-        restart: true
+        # restart: true
       redis:
         condition: service_started
     env_file:

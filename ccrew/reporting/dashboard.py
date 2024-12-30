@@ -1,6 +1,8 @@
 import json
 from dash import Dash, Input, Output, State, callback, dcc, html
 from ccrew.reporting import plotting
+from flask_security import current_user
+from flask import redirect, url_for
 
 
 def create_dash_app(base_flask_app):
@@ -8,6 +10,12 @@ def create_dash_app(base_flask_app):
         server=base_flask_app,
         routes_pathname_prefix="/dashboard/",
     )
+
+    # @dash_app.server.before_request
+    # def restricted():
+    #     if not current_user.is_authenticated:
+    #         return redirect(url_for("security.login"))
+
     dash_app.layout = html.Div(
         id="dash-container",
         children=[

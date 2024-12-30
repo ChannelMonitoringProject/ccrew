@@ -32,6 +32,10 @@ class Config:
     }
 
     # For Flask-Security-Too
+    # Seed first user
+    # Make sure those are defined in ,env
+    ADMIN_USER = os.environ.get("ADMIN_USER")
+    ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
     SECRET_KEY = os.environ.get("SECRET_KEY", "security key <keep secret>")
     SECURITY_PASSWORD_SALT = os.environ.get(
         "SECURITY_PASSWORD_SALT", "security password salt <keep secret>"
