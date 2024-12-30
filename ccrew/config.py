@@ -31,6 +31,18 @@ class Config:
         "update_interval": 300,
     }
 
+    # For Flask-Security-Too
+    SECRET_KEY = os.environ.get("SECRET_KEY", "security key <keep secret>")
+    SECURITY_PASSWORD_SALT = os.environ.get(
+        "SECURITY_PASSWORD_SALT", "security password salt <keep secret>"
+    )
+    REMEMBER_COOKIE_SAMESITE = "strict"
+    SESSION_COOKIE_SAMESITE = "strict"
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+    }
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+
 
 class DockerConfig(Config):
     # Running dockerised, services are on hosts "redis", "database", etc
