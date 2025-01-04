@@ -1,4 +1,6 @@
 from flask import Flask
+from flask_admin import Admin
+from flask_admin.contrib.sqla import ModelView
 from ccrew import ingestion
 from ccrew import ingestion
 from ccrew import reporting
@@ -6,6 +8,7 @@ from ccrew.admin import create_admin_blueprint
 from ccrew.core import db, migrate
 from ccrew.core.auth import User, Role, seed_auth
 import ccrew.models
+from ccrew.models.track import TrackedBoat
 from flask_security.core import Security
 from flask_security.datastore import SQLAlchemyUserDatastore
 from flask_security.decorators import auth_required
@@ -23,12 +26,15 @@ def create_app(config=get_config()):
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)
     security = Security(app, user_datastore)
 
+    admin = Admin(app, name="ccrew")
+    admin.add_view(ModelView(TrackedBoat, db.session))
+
     # TODO change to factory pattern ( def create_bp() )
     ingestion_bp = ingestion.ingestion_bp
     app.register_blueprint(ingestion_bp)
 
-    admin_bp = create_admin_blueprint()
-    app.register_blueprint(admin_bp)
+    # admin_bp = create_admin_blueprint()
+    # app.register_blueprint(admin_bp)
 
     @app.route("/")
     def home():
