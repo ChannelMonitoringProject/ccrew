@@ -6,7 +6,7 @@ services:
     volumes:
       - database:/var/lib/postgresql
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     env_file:
       - env.docker
     healthcheck:
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis/redis-stack
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   celery_application:
     build: .
@@ -44,7 +44,7 @@ services:
     env_file:
         - env.docker
     ports:
-      - "8050:5000"
+      - "127.0.0.1:8050:5000"
 
 volumes:
   database:

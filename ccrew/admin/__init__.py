@@ -12,4 +12,10 @@ def create_admin_blueprint():
     def admin_root():
         return {"message": "admin root"}
 
+    @admin_bp.route("/users")
+    @auth_required()
+    @roles_required("admin")
+    def users():
+        pass
+
     return admin_bp

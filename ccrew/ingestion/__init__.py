@@ -1,6 +1,7 @@
 import inspect
 import logging
 from flask import Blueprint
+from flask_security.decorators import roles_required, auth_required
 from . import tasks
 from .tasks import celery_app, process_ais_stream
 from .ais_stream import IngestAISStream
@@ -36,7 +37,9 @@ def get_active_ais_stream_tasks():
     return ret
 
 
-@ingestion_bp.route("/ais/status")
+@ingestion_bp.route("/admin/ais/status")
+@auth_required()
+@roles_required("admin")
 def ingestion_status():
     ret = {}
     active_ais_stream_tasks = get_active_ais_stream_tasks()
@@ -58,7 +61,9 @@ def ingestion_status():
     return ret
 
 
-@ingestion_bp.route("/ais/start")
+@ingestion_bp.route("/admin/ais/start")
+@auth_required()
+@roles_required("admin")
 def start_ais():
 
     active_ais_stream_tasks = get_active_ais_stream_tasks()
@@ -75,7 +80,9 @@ def start_ais():
     return {"message": f"Task  was already running"}
 
 
-@ingestion_bp.route("/ais/stop")
+@ingestion_bp.route("/admin/ais/stop")
+@auth_required()
+@roles_required("admin")
 def stop_ais():
     logging.warning("AIS Ingestion process stopping, will not monitor AIS Stream")
     redis_client.set(IngestAISStream.REDIS_TASK_CONTROL_KEY, "stop")
