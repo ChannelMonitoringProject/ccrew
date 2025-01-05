@@ -4,7 +4,7 @@ services:
     image: postgres
     hostname: database
     volumes:
-      - database:/var/lib/postgresql
+      - database-volume:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:5432:5432"
     env_file:
@@ -47,4 +47,4 @@ services:
       - "127.0.0.1:8050:5000"
 
 volumes:
-  database:
+  database-volume:

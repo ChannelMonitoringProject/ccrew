@@ -14,7 +14,7 @@ redis_client = redis.Redis(
 
 def get_arena():
     """
-    Convert arena as defined in condig to the one used by plot
+    Convert arena as defined in config to the one used by plot
     """
     arena = config.AIS_STREAM["arena"]
     arena_bounds = {
@@ -68,6 +68,7 @@ def to_defaultdict(list_of_dicts):
     """
     helper to convert from list of dicts [{"mmsi":123, ...}, ... ]
     to a dict of lists { "mmsi": [123, ...], "ship_name":["boaty", ...], ... }
+    This is how plotly needs those to be
 
     :param list_of_dicts
     """
