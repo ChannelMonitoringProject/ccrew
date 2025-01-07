@@ -1,11 +1,17 @@
+from datetime import datetime, timedelta
+import logging
 from collections import defaultdict
+import redis
 from dash.html import Figure
 import plotly.graph_objects as go
-import redis
+from sqlalchemy import and_, create_engine
+from sqlalchemy.orm import Session
 from ccrew.config import get_config
-import logging
+from ccrew.models.position_reports import BoatPositionReport
 
 config = get_config()
+engine = create_engine(config.SQLALCHEMY_DATABASE_URI)
+
 
 redis_client = redis.Redis(
     host=config.REDIS["host"], port=config.REDIS["port"], db=config.REDIS["db"]
@@ -119,3 +125,18 @@ def plot_state():
         margin={"r": 0, "t": 0, "l": 0, "b": 0},
     )
     return fig
+
+
+def get_boat_tail_trace(
+    tracked_boat, latest=datetime.now(), tail_length=timedelta(minutes=60)
+):
+    with Session(engine) as session:
+        query = session.query(BoatPositionReport).filter(
+            and_(
+                BoatPositionReport.mmsi == tracked_boat["mmsi"],
+                BoatPositionReport.ship_name == tracked_boat["ship_name"],
+            )
+        )
+        result = query.all()
+        print(result)
+    pass

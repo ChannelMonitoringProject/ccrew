@@ -1,23 +1,23 @@
+from datetime import datetime, timedelta
 from plotly.graph_objects import Figure, Scattermapbox
 import pytest
 from redis.commands.json.path import Path
-from pytest_mock_resources import create_redis_fixture, RedisConfig
+from pytest_mock_resources import (
+    create_redis_fixture,
+    RedisConfig,
+    create_postgres_fixture,
+)
 from ccrew.reporting import plotting
+from ccrew.models import Base
 
 
 redis = create_redis_fixture()
+postgres = create_postgres_fixture(Base, session=True)
 
 
 @pytest.fixture(scope="session")
 def pmr_redis_config():
     return RedisConfig(image="redis/redis-stack")
-
-
-@pytest.fixture(scope="session")
-def mocked_redis_client(pmr_redis_config):
-    redis_cli = create_redis_fixture()
-    seed_mocked_redis(redis_cli)
-    return redis_cli
 
 
 def seed_mocked_redis(redis):
@@ -46,11 +46,6 @@ def seed_mocked_redis(redis):
     }
     redis_key = f"state:BoatPositionReport:244650331-TRADE NAVIGATOR"
     redis.json().set(redis_key, Path.root_path(), boat_state_redis_entry)
-
-
-def test_mocked_correctly(mocked_redis_client):
-    print(mocked_redis_client)
-    assert False
 
 
 def test_get_state_boat_position_reports_from_redis(redis):
@@ -109,3 +104,15 @@ def test_plot_state(redis):
     )
     assert type(figure) == Figure
     assert figure["data"] == expected_data
+
+
+def test_get_boat_tail_trace(postgres):
+    print(type(postgres))
+    # plotting.db = postgres
+    tracked_boat = {"mmsi": 228070800, "ship_name": "F/V ARPEGE          "}
+    # latest = datetime.strptime("2025-01-07 18:47:52.798473", "%Y-%m-%d %H:%M:%S")
+    latest = datetime(year=2025, month=1, day=7, hour=18, minute=47, second=52)
+    # boat_tail_trace = plotting.get_boat_tail_trace(tracked_boat)
+    boat_tail_trace = plotting.get_boat_tail_trace(tracked_boat, latest=latest)
+    print(boat_tail_trace)
+    assert False
