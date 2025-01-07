@@ -113,6 +113,6 @@ def test_get_boat_tail_trace(postgres):
     # latest = datetime.strptime("2025-01-07 18:47:52.798473", "%Y-%m-%d %H:%M:%S")
     latest = datetime(year=2025, month=1, day=7, hour=18, minute=47, second=52)
     # boat_tail_trace = plotting.get_boat_tail_trace(tracked_boat)
-    boat_tail_trace = plotting.get_boat_tail_trace(tracked_boat, latest=latest)
+    boat_tail_trace = plotting.get_boat_tail_data(tracked_boat, latest=latest)
     print(boat_tail_trace)
     assert False

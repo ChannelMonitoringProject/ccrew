@@ -127,14 +127,29 @@ def plot_state():
     return fig
 
 
-def get_boat_tail_trace(
+def get_boat_tail_data(
     tracked_boat, latest=datetime.now(), tail_length=timedelta(minutes=60)
 ):
+    earliest = latest - tail_length
     with Session(engine) as session:
-        query = session.query(BoatPositionReport).filter(
-            and_(
-                BoatPositionReport.mmsi == tracked_boat["mmsi"],
-                BoatPositionReport.ship_name == tracked_boat["ship_name"],
+        query = (
+            session.query(
+                BoatPositionReport.lat,
+                BoatPositionReport.lon,
+                BoatPositionReport.server_timestamp,
+                BoatPositionReport.sog,
+            )
+            .filter(
+                and_(
+                    BoatPositionReport.mmsi == tracked_boat["mmsi"],
+                    BoatPositionReport.ship_name == tracked_boat["ship_name"],
+                )
+            )
+            .filter(
+                and_(
+                    BoatPositionReport.server_timestamp < latest,
+                    BoatPositionReport.server_timestamp > earliest,
+                )
             )
         )
         result = query.all()
