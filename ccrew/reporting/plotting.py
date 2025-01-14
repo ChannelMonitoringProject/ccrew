@@ -131,6 +131,7 @@ def get_boat_tail_data(
     tracked_boat, latest=datetime.now(), tail_length=timedelta(minutes=60)
 ):
     earliest = latest - tail_length
+    ret = {"lat": [], "lon": [], "time": [], "speed": []}
     with Session(engine) as session:
         query = (
             session.query(
@@ -153,5 +154,10 @@ def get_boat_tail_data(
             )
         )
         result = query.all()
-        print(result)
-    pass
+        # list of tuples to dict
+        for entry in result:
+            ret["lat"].append(entry[0])
+            ret["lon"].append(entry[1])
+            ret["time"].append(entry[2])
+            ret["speed"].append(entry[3])
+    return ret

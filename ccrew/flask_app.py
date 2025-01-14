@@ -1,10 +1,12 @@
 from flask import Flask
-from flask_admin import Admin
-from flask_admin.contrib.sqla import ModelView
+
+# from flask_admin import Admin
+# from flask_admin.contrib.sqla import ModelView
 from ccrew import ingestion
 from ccrew import ingestion
 from ccrew import reporting
-from ccrew.admin import create_admin_blueprint
+
+# from ccrew.admin import create_admin_blueprint
 from ccrew.core import db, migrate
 from ccrew.core.auth import User, Role, seed_auth
 import ccrew.models
@@ -26,8 +28,8 @@ def create_app(config=get_config()):
     user_datastore = SQLAlchemyUserDatastore(db, User, Role)
     security = Security(app, user_datastore)
 
-    admin = Admin(app, name="ccrew")
-    admin.add_view(ModelView(TrackedBoat, db.session))
+    # admin = Admin(app, name="ccrew")
+    # admin.add_view(ModelView(TrackedBoat, db.session))
 
     # TODO change to factory pattern ( def create_bp() )
     ingestion_bp = ingestion.ingestion_bp
