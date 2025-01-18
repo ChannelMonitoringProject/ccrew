@@ -9,14 +9,10 @@ from pytest_mock_resources import (
     RedisConfig,
     create_postgres_fixture,
 )
-from ccrew.models.position_reports import BoatPositionReport
 from ccrew.reporting import plotting
 from ccrew.models import Base
-
-
-# redis = create_redis_fixture()
-# postgres = create_postgres_fixture(Base, session=True)
-# postgres = create_postgres_fixture(Base)
+from ccrew.models.position_reports import BoatPositionReport
+from ccrew.tests.conftest import dump_table
 
 
 @pytest.fixture(scope="session")
@@ -76,11 +72,14 @@ def seed_database(database_engine):
         "user_id": 244650331,
         "valid": True,
     }
+
+    Base.metadata.tables["boat_postion_reports"].create(bind=database_engine)
     with Session(database_engine) as session:
         entry_a = BoatPositionReport(**boat_position_report_entry)
         session.add(entry_a)
         session.commit()
-    yield database_engine
+    dump_table(database_engine, "boat_postion_reports")
+    # yield database_engine
 
 
 def test_redis_seeding(redis):
@@ -181,12 +180,25 @@ def test_plot_state(redis):
 
 def test_get_boat_tail_trace(pg):
     seed_database(pg)
-    print(type(pg))
-    print(pg)
     plotting.engine = pg
     tracked_boat = {"mmsi": 244650331, "ship_name": "TRADE NAVIGATOR"}
-    latest = datetime(year=2025, month=1, day=7, hour=18, minute=47, second=52)
-    boat_tail_data = plotting.get_boat_tail_data(tracked_boat, latest=latest)
+
+    latest = datetime.strptime("2025-01-05T17:43:42.302549", "%Y-%m-%dT%X.%f")
+    boat_tail_data = plotting.get_boat_route_data(tracked_boat, latest=latest)
+
+    expected = {
+        "lat": [
+            51.2070666666667,
+        ],
+        "lon": [
+            1.99033333333333,
+        ],
+        "speed": [
+            11.1,
+        ],
+        "time": [
+            datetime(2025, 1, 5, 17, 42, 42, 302549),
+        ],
+    }
     assert all(k in boat_tail_data.keys() for k in ["lat", "lon", "speed", "time"])
-    print(boat_tail_data)
-    assert False
+    assert boat_tail_data == expected

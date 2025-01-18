@@ -127,10 +127,12 @@ def plot_state():
     return fig
 
 
-def get_boat_tail_data(
-    tracked_boat, latest=datetime.now(), tail_length=timedelta(minutes=60)
-):
-    earliest = latest - tail_length
+def get_boat_route_data(tracked_boat, earliest=None, latest=datetime.now()):
+    """Returns data for plotting a route track trace from database
+    if no latest provided, defaults to now, if no earliest an hour before latest
+    """
+    if not earliest:
+        earliest = latest - timedelta(minutes=60)
     ret = {"lat": [], "lon": [], "time": [], "speed": []}
     with Session(engine) as session:
         query = (
