@@ -10,9 +10,26 @@ from pytest_mock_resources import (
     create_postgres_fixture,
 )
 from ccrew.reporting import plotting
-from ccrew.models import Base
+from ccrew.models import Base, track
 from ccrew.models.position_reports import BoatPositionReport
+from ccrew.models.track import TrackedBoat
 from ccrew.tests.conftest import dump_table
+
+
+@pytest.fixture(autouse=True)
+def seed(redis, pg):
+    Base.metadata.tables["boat_postion_reports"].create(bind=pg)
+    Base.metadata.tables["tracked_boats"].create(bind=pg)
+    seed_redis(redis)
+    seed_database(pg)
+
+    dump_table(pg, "boat_postion_reports")
+    dump_table(pg, "tracked_boats")
+
+    yield
+    # TODO: Cleanup: This isn't executed before the yield for some reason?
+    # Base.metadata.tables["boat_postion_reports"].drop(bind=pg)
+    # Base.metadata.tables["tracked_boats"].drop(bind=pg)
 
 
 @pytest.fixture(scope="session")
@@ -73,25 +90,33 @@ def seed_database(database_engine):
         "valid": True,
     }
 
-    Base.metadata.tables["boat_postion_reports"].create(bind=database_engine)
+    tracked_boat_entry = {
+        "mmsi": 244650331,
+        "ship_name": "TRADE NAVIGATOR",
+        "color": "blue",
+        "label": "Trade Navigator",
+    }
+
     with Session(database_engine) as session:
-        entry_a = BoatPositionReport(**boat_position_report_entry)
-        session.add(entry_a)
+        tracking_entry_a = TrackedBoat(**tracked_boat_entry)
+        position_report_a = BoatPositionReport(**boat_position_report_entry)
+        session.add(tracking_entry_a)
+        session.add(position_report_a)
         session.commit()
     dump_table(database_engine, "boat_postion_reports")
+    dump_table(database_engine, "tracked_boats")
     # yield database_engine
 
 
 def test_redis_seeding(redis):
-    # Ensures the framework is working
+    # Verify mock database is seeded correctly
     redis_key = f"mockey"
     redis.json().set(redis_key, Path.root_path(), {"testi": "cal"})
     entry = redis.json().get(redis_key)
     assert entry == {"testi": "cal"}
 
-    # Ensures redis mock seeding function is working
     redis_key = f"state:BoatPositionReport:244650331-TRADE NAVIGATOR"  # Test Mock seeding function works
-    seed_redis(redis)
+    # seed_redis(redis)
     expected = {
         "cog": 56.8,
         "id": None,
@@ -120,11 +145,33 @@ def test_redis_seeding(redis):
     assert entry == expected
 
 
+def test_database_seeding(pg):
+    dump_table(pg, "boat_postion_reports")
+    dump_table(pg, "tracked_boats")
+    with Session(pg) as session:
+        boat_position_report = session.query(BoatPositionReport).all()
+        assert len(boat_position_report) == 1
+        assert type(boat_position_report[0]) == BoatPositionReport
+        assert int(boat_position_report[0].mmsi) == 244650331
+        assert str(boat_position_report[0].ship_name) == "TRADE NAVIGATOR"
+        assert boat_position_report[0].lat == 51.2070666666667
+        assert boat_position_report[0].lon == 1.99033333333333
+        assert boat_position_report[0].sog == 11.1
+
+        boat_tracking_options = session.query(TrackedBoat).all()
+        assert len(boat_tracking_options) == 1
+        assert type(boat_tracking_options[0]) == TrackedBoat
+        assert int(boat_tracking_options[0].mmsi) == 244650331
+        assert str(boat_tracking_options[0].ship_name) == "TRADE NAVIGATOR"
+        assert str(boat_tracking_options[0].color) == "blue"
+    dump_table(pg, "boat_postion_reports")
+    dump_table(pg, "tracked_boats")
+
+
 def test_get_state_boat_position_reports_from_redis(redis):
-    seed_redis(redis)
+    # seed_redis(redis)
     plotting.redis_client = redis
     state = plotting.get_state_boat_position_reports()
-    print(state)
     boat_state = state[0]
     assert boat_state["mmsi"] == 244650331
 
@@ -178,13 +225,27 @@ def test_plot_state(redis):
     assert figure["data"] == expected_data
 
 
+def test_get_tracking_entry(pg):
+    mmsi = 244650331
+    ship_name = "TRADE NAVIGATOR"
+    tracking_entry = plotting.get_boat_tracking_options(mmsi=mmsi, ship_name=ship_name)
+    assert tracking_entry == {}
+
+
 def test_get_boat_tail_trace(pg):
-    seed_database(pg)
+    # seed_database(pg)
     plotting.engine = pg
-    tracked_boat = {"mmsi": 244650331, "ship_name": "TRADE NAVIGATOR"}
+
+    tracking_entry = {
+        "mmsi": 244650331,
+        "ship_name": "TRADE NAVIGATOR",
+        "color": "blue",
+        "label": "Test Label",
+    }
+    te = track.TrackedBoat(**tracking_entry)
 
     latest = datetime.strptime("2025-01-05T17:43:42.302549", "%Y-%m-%dT%X.%f")
-    boat_tail_data = plotting.get_boat_route_data(tracked_boat, latest=latest)
+    boat_tail_data = plotting.get_boat_route_data(tracking_entry, latest=latest)
 
     expected = {
         "lat": [
@@ -202,3 +263,18 @@ def test_get_boat_tail_trace(pg):
     }
     assert all(k in boat_tail_data.keys() for k in ["lat", "lon", "speed", "time"])
     assert boat_tail_data == expected
+
+    boat_tail_trace = plotting.get_boat_route_trace(te, boat_tail_data)
+    expected = Scattermapbox(
+        {
+            "lat": [51.2070666666667],
+            "line": {"color": "blue"},
+            "lon": [1.99033333333333],
+            "marker": {"color": "blue", "size": 15},
+            "mode": "lines",
+            "showlegend": True,
+            "text": "TRADE NAVIGATOR - 244650331",
+            "textposition": "top right",
+        }
+    )
+    assert boat_tail_trace == expected

@@ -4,10 +4,12 @@ from collections import defaultdict
 import redis
 from dash.html import Figure
 import plotly.graph_objects as go
-from sqlalchemy import and_, create_engine
+from sqlalchemy import and_, create_engine, select
 from sqlalchemy.orm import Session
+from ccrew import models
 from ccrew.config import get_config
 from ccrew.models.position_reports import BoatPositionReport
+from ccrew.models.track import TrackedBoat
 
 config = get_config()
 engine = create_engine(config.SQLALCHEMY_DATABASE_URI)
@@ -56,6 +58,22 @@ def get_state():
         state_entry = redis_client.json().get(state_entry_key)
         ret.append(state_entry)
     return ret
+
+
+def get_boat_tracking_options(mmsi, ship_name):
+    """
+    Gets the tracking config options for a single boat from database
+    """
+
+    with Session(engine) as session:
+        select_statement = select(TrackedBoat).where(TrackedBoat.mmsi == mmsi)
+        # select_statement = select(TrackedBoat)
+        # result = session.execute(select_statement).all()
+        result = session.query(TrackedBoat).all()
+        print("result:")
+        for e in result:
+            print(e)
+        return result
 
 
 def get_state_boat_position_reports():
@@ -156,10 +174,33 @@ def get_boat_route_data(tracked_boat, earliest=None, latest=datetime.now()):
             )
         )
         result = query.all()
-        # list of tuples to dict
         for entry in result:
             ret["lat"].append(entry[0])
             ret["lon"].append(entry[1])
             ret["time"].append(entry[2])
             ret["speed"].append(entry[3])
+    return ret
+
+
+def get_boat_route_trace(tracking_entry: models.TrackedBoat, trace_data):
+    mmsi = tracking_entry.mmsi
+    name = tracking_entry.ship_name
+
+    color = tracking_entry.color or "red"
+
+    ret = go.Scattermapbox(
+        lat=trace_data["lat"],
+        lon=trace_data["lon"],
+        mode="lines",
+        line=dict(color=color),
+        marker=dict(
+            color=color,
+            size=15,
+        ),
+        text=f"{name} - {mmsi}",
+        textposition="top right",
+        # hoverinfo=f"{ trace_data['time']} - {trace_data['speed']}kt",
+        showlegend=True,
+    )
+    print(ret)
     return ret
