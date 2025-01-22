@@ -67,12 +67,7 @@ def get_boat_tracking_options(mmsi, ship_name):
 
     with Session(engine) as session:
         select_statement = select(TrackedBoat).where(TrackedBoat.mmsi == mmsi)
-        # select_statement = select(TrackedBoat)
-        # result = session.execute(select_statement).all()
-        result = session.query(TrackedBoat).all()
-        print("result:")
-        for e in result:
-            print(e)
+        result = session.execute(select_statement).first()[0]
         return result
 
 

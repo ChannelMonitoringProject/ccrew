@@ -228,8 +228,13 @@ def test_plot_state(redis):
 def test_get_tracking_entry(pg):
     mmsi = 244650331
     ship_name = "TRADE NAVIGATOR"
+    plotting.engine = pg
     tracking_entry = plotting.get_boat_tracking_options(mmsi=mmsi, ship_name=ship_name)
-    assert tracking_entry == {}
+    assert type(tracking_entry) == TrackedBoat
+    assert tracking_entry.mmsi == 244650331
+    assert tracking_entry.ship_name == "TRADE NAVIGATOR"
+    assert tracking_entry.label == "Trade Navigator"
+    assert tracking_entry.color == "blue"
 
 
 def test_get_boat_tail_trace(pg):
