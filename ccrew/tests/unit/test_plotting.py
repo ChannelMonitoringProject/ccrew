@@ -3,6 +3,7 @@ from plotly.graph_objects import Figure, Scattermapbox
 import pytest
 from pytest_mock_resources.fixture import postgresql
 from redis.commands.json.path import Path
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from pytest_mock_resources import (
     create_redis_fixture,
@@ -66,7 +67,7 @@ def seed_redis(redis):
     entry = redis.json().get(redis_key)
 
 
-def seed_database(database_engine):
+def seed_database(database_engine: Engine):
     boat_position_report_entry = {
         "server_timestamp": "2025-01-05T17:42:42.302549",
         "time_utc": "2025-01-05 16:42:42.096444364 +0000 UTC",
@@ -148,7 +149,7 @@ def test_redis_seeding(redis):
 def test_database_seeding(pg):
     dump_table(pg, "boat_postion_reports")
     dump_table(pg, "tracked_boats")
-    with Session(pg) as session:
+    with Session(pg) as session:  # type: ignore
         boat_position_report = session.query(BoatPositionReport).all()
         assert len(boat_position_report) == 1
         assert type(boat_position_report[0]) == BoatPositionReport
@@ -236,18 +237,30 @@ def test_get_tracking_entry(pg):
     assert tracking_entry.label == "Trade Navigator"
     assert tracking_entry.color == "blue"
 
+    tracking_entry = plotting.get_boat_tracking_options(mmsi=mmsi, ship_name="Fake")
+    assert tracking_entry == None
+
+    tracking_entry = plotting.get_boat_tracking_options(mmsi=1312, ship_name=ship_name)
+    assert tracking_entry == None
+
+
+def test_get_all_tracked_boats_options(pg):
+    plotting.engine = pg
+    options = plotting.get_all_boats_tracking_options()
+    assert len(options) == 1
+    assert type(options[0]) == TrackedBoat
+
 
 def test_get_boat_tail_trace(pg):
     # seed_database(pg)
     plotting.engine = pg
 
-    tracking_entry = {
-        "mmsi": 244650331,
-        "ship_name": "TRADE NAVIGATOR",
-        "color": "blue",
-        "label": "Test Label",
-    }
-    te = track.TrackedBoat(**tracking_entry)
+    tracking_entry = TrackedBoat(
+        mmsi=244650331,
+        ship_name="TRADE NAVIGATOR",
+        color="blue",
+        label="Test Label",
+    )
 
     latest = datetime.strptime("2025-01-05T17:43:42.302549", "%Y-%m-%dT%X.%f")
     boat_tail_data = plotting.get_boat_route_data(tracking_entry, latest=latest)
@@ -269,7 +282,7 @@ def test_get_boat_tail_trace(pg):
     assert all(k in boat_tail_data.keys() for k in ["lat", "lon", "speed", "time"])
     assert boat_tail_data == expected
 
-    boat_tail_trace = plotting.get_boat_route_trace(te, boat_tail_data)
+    boat_tail_trace = plotting.get_boat_route_trace(tracking_entry, boat_tail_data)
     expected = Scattermapbox(
         {
             "lat": [51.2070666666667],
@@ -283,3 +296,12 @@ def test_get_boat_tail_trace(pg):
         }
     )
     assert boat_tail_trace == expected
+
+
+def test_get_map_at(pg, redis):
+    latest = datetime.strptime("2025-01-05T17:43:42.302549", "%Y-%m-%dT%X.%f")
+    plotting.engine = pg
+    plotting.redis = redis
+    plot = plotting.get_map_at(when=latest)
+    assert type(plot) == Figure
+    # assert plot == {}

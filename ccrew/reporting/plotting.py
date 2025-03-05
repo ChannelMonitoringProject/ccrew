@@ -2,9 +2,12 @@ from datetime import datetime, timedelta
 import logging
 from collections import defaultdict
 import redis
-from dash.html import Figure
+
+# from dash.html import Figure
+from plotly.graph_objects import Figure
 import plotly.graph_objects as go
 from sqlalchemy import and_, create_engine, select
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from ccrew import models
 from ccrew.config import get_config
@@ -66,8 +69,19 @@ def get_boat_tracking_options(mmsi, ship_name):
     """
 
     with Session(engine) as session:
-        select_statement = select(TrackedBoat).where(TrackedBoat.mmsi == mmsi)
-        result = session.execute(select_statement).first()[0]
+        select_statement = (
+            select(TrackedBoat)
+            .where(TrackedBoat.mmsi == mmsi)
+            .where(TrackedBoat.ship_name == ship_name)
+        )
+        result = session.execute(select_statement).scalars().first()
+        return result
+
+
+def get_all_boats_tracking_options():
+    with Session(engine) as session:  # type: ignore
+        select_statement = select(TrackedBoat)
+        result = session.execute(select_statement).scalars().all()
         return result
 
 
@@ -147,7 +161,7 @@ def get_boat_route_data(tracked_boat, earliest=None, latest=datetime.now()):
     if not earliest:
         earliest = latest - timedelta(minutes=60)
     ret = {"lat": [], "lon": [], "time": [], "speed": []}
-    with Session(engine) as session:
+    with Session(engine) as session:  # type: ignore
         query = (
             session.query(
                 BoatPositionReport.lat,
@@ -157,8 +171,8 @@ def get_boat_route_data(tracked_boat, earliest=None, latest=datetime.now()):
             )
             .filter(
                 and_(
-                    BoatPositionReport.mmsi == tracked_boat["mmsi"],
-                    BoatPositionReport.ship_name == tracked_boat["ship_name"],
+                    BoatPositionReport.mmsi == tracked_boat.mmsi,
+                    BoatPositionReport.ship_name == tracked_boat.ship_name,
                 )
             )
             .filter(
@@ -199,3 +213,33 @@ def get_boat_route_trace(tracking_entry: models.TrackedBoat, trace_data):
     )
     print(ret)
     return ret
+
+
+def get_map_at(when=datetime.now()):
+    """Gets a plot of map at a given time, defaults to now()
+    optionally,
+    """
+    arena = get_arena()
+    center = get_center(arena)
+    zoom = 10
+    fig = go.Figure()
+    fig.update_layout(
+        mapbox=dict(
+            style="open-street-map",  # Use OpenStreetMap as the background
+            center=dict(
+                lat=center["lat"],
+                lon=center["lon"],
+            ),
+            zoom=zoom,
+        ),
+        margin={"r": 0, "t": 0, "l": 0, "b": 0},
+    )
+
+    tracked_boats_options = get_all_boats_tracking_options()
+    route_traces = []
+    for tracked in tracked_boats_options:
+        trace_data = get_boat_route_data(tracked_boat=tracked, latest=when)
+        trace = get_boat_route_trace(tracked, trace_data)
+        route_traces.append(trace)
+    fig.add_traces(route_traces)
+    return fig

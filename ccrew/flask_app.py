@@ -1,12 +1,8 @@
 from flask import Flask
 
-# from flask_admin import Admin
-# from flask_admin.contrib.sqla import ModelView
-from ccrew import ingestion
 from ccrew import ingestion
 from ccrew import reporting
 
-# from ccrew.admin import create_admin_blueprint
 from ccrew.core import db, migrate
 from ccrew.core.auth import User, Role, seed_auth
 import ccrew.models
@@ -35,6 +31,9 @@ def create_app(config=get_config()):
     ingestion_bp = ingestion.ingestion_bp
     app.register_blueprint(ingestion_bp)
 
+    reporting_bp = reporting.bp
+    app.register_blueprint(reporting_bp)
+
     # admin_bp = create_admin_blueprint()
     # app.register_blueprint(admin_bp)
 
@@ -45,7 +44,7 @@ def create_app(config=get_config()):
     # TODO need to figure out how to make this work with flask_security
     # in order to restrict access to dashboard
     # At the moment this is public
-    reporting_dash_app = reporting.create_dash_app(app)
+    # reporting_dash_app = reporting.create_dash_app(app)
 
     # @app.route("/dashboard/")
     # @auth_required()

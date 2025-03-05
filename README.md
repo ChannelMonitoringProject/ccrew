@@ -145,7 +145,7 @@ This application uses an SQL Database and a Redis database
 Workloads are done using Celery which manages tasks
 Tasks could be long running tasks such as ingesting a stream of boat position reports from a websocket, scheduled ingestion tasks such as hourly weather report. They could also be reporting and alerting tasks such as daily weather forecast report, or priodict alert dispatch.
 
-The Celery application, defined in "ccrew/celery_app.py", runs in its own container, seperate from the frontend flask application. they communicate with eatchother using redis (in memory key/value database), this is defined in "config.py"
+The Celery application, defined in "ccrew/celery_app.py", runs in its own container, separate from the frontend flask application. they communicate with eatchother using redis (in memory key/value database), this is defined in "config.py"
 
 reports or periodic alerts and status updates
 

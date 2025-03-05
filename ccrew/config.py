@@ -33,7 +33,7 @@ class Config:
 
     # For Flask-Security-Too
     # Seed first user
-    # Make sure those are defined in ,env
+    # Make sure those are defined in env!
     ADMIN_USER = os.environ.get("ADMIN_USER")
     ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
     SECRET_KEY = os.environ.get("SECRET_KEY", "security key <keep secret>")
@@ -68,7 +68,17 @@ class DevelopmentConfig(Config):
 
 
 class TestConfig(Config):
-    pass
+    SQLALCHEMY_DATABASE_URI = f"postgresql://user:password@localhost:5532/database"
+    # SQLALCHEMY_DATABASE_URI = (
+    #    "postgresql+psycopg2://user:***@localhost:5532/pytest_mock_resource_db_20"
+    # )
+
+    ADMIN_USER = "test@example.com"
+    ADMIN_PASSWORD = "password"
+
+    TESTING = True
+    SECURITY_EMAIL_VALIDATOR_ARGS = {"check_deliverability": False}
+    SECURITY_PASSWORD_HASH = "plaintext"
 
 
 class StagingConfig(Config):
