@@ -24,6 +24,12 @@ class Config:
         "port": 6379,
         "db": 1,
     }
+
+    # KAFKA Broker
+    KAFKA = {
+        "bootstrap_servers": os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "localhost:9092")
+    }
+
     AIS_STREAM = {
         "arena": [[[51.385, 0.909], [50.678, 2.667]]],
         "api_key": os.environ.get("AIS_STREAM_API_KEY"),
@@ -60,6 +66,10 @@ class DockerConfig(Config):
         "host": "redis",
         "port": 6379,
         "db": 1,
+    }
+    # KAFKA Broker
+    KAFKA = {
+        "bootstrap_servers": os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
     }
 
 
