@@ -7,7 +7,7 @@ windows:
       layout: main-horizontal
       panes:
         - services:
-          - docker-compose up database redis
+          - docker compose up database redis broker
         - celery:
           - export export FLASK_DEBUG=1
           - export export ENVIRONMENT=dev

@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 import json
@@ -10,15 +11,20 @@ from ccrew.config import get_config
 # from config import get_config
 
 config = get_config()
+print(config)
+loglevel = os.environ.get("PYTHONLOGLEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, loglevel, logging.INFO))
 
 kafka_bootstrap = [config.KAFKA["bootstrap_servers"]]
-print(kafka_bootstrap)
-producer = KafkaProducer(bootstrap_servers=config.KAFKA["bootstrap_servers"])
+# print(f"{kafka_bootstrap}")
+producer = KafkaProducer(bootstrap_servers="localhost:9092")
+
+KAFKA_TOPIC = "aisstream"
 
 
 def queue_item(item):
-    logging.info("Will queue: {item}")
-    pass
+    logging.info(f"Will queue: {item}")
+    producer.send(KAFKA_TOPIC, item)
 
 
 async def ais_stream_listener():

@@ -1,7 +1,11 @@
 import os
+import logging
 from dotenv import load_dotenv
 
 load_dotenv()
+
+loglevel = os.environ.get("PYTHONLOGLEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, loglevel, logging.INFO))
 
 db_name = os.environ.get("POSTGRES_DB")
 db_user = os.environ.get("POSTGRES_USER")
