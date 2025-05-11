@@ -33,7 +33,7 @@ Flask-Login==0.6.3
 Flask-Mailman==1.1.1
 Flask-Migrate==4.0.7
 Flask-Principal==0.4.0
-Flask-Security==5.5.2
+Flask-Security-Too==5.6.2
 Flask-SQLAlchemy==3.1.1
 Flask-WTF==1.2.2
 flower==2.0.1
