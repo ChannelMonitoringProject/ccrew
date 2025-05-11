@@ -40,6 +40,8 @@ class Config:
     SECURITY_PASSWORD_SALT = os.environ.get(
         "SECURITY_PASSWORD_SALT", "security password salt <keep secret>"
     )
+    SECURITY_API_ENABLED = os.environ.get("SECURITY_API_ENABLED", True)
+
     REMEMBER_COOKIE_SAMESITE = "strict"
     SESSION_COOKIE_SAMESITE = "strict"
     SQLALCHEMY_ENGINE_OPTIONS = {
